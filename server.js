@@ -26,6 +26,8 @@ const OpenSSL = require("@andrewiski/openssl");
 const ioServer = require('socket.io');
 const UispToolsApiHandler = require("./uispToolsApiHandler.js");
 const UispToolsApiRequestHandler = require("./uispToolsApiRequestHandler.js");
+const { MongoClient, ServerApiVersion } = require("mongodb");
+const uri = "<connection string>";
 const { networkInterfaces } = require('os');
 const { Router } = require('express');
 
