@@ -39,6 +39,7 @@ class channelmap extends baseClientSide.widget
                 );
             }catch(ex){
                 $.logToConsole("ERROR uisptools.loadWidget: " + ex.toString());
+                
                 reject(ex);
             }
         });
@@ -47,11 +48,27 @@ class channelmap extends baseClientSide.widget
     fetchApDevices(){
         return $.uisptools.ajax("/uisptools/api/nms/devices?role=ap");
     }
+    fetchSurveyData(){
+        return $.uisptools.ajax("/uisptools/data/surveyData");
+    }
     fetchSimulation(){
         return $.uisptools.ajax("/uisptools/api/nms/simulation");
     }
     fetchSurvey(Deviceid){
         return $.uisptools.ajax("/uisptools/api/nms/devices/airmaxes/"+Deviceid+"/site-survey");
+    }
+    PostSurvey(document){
+        return $.ajax('/uisptools/data/surveyData',{
+            method: 'POST',
+            data:{
+                key1: 'value1',
+                key2: 'value2'
+              },
+           })
+           .then(response => {
+
+             console.log(response);
+           });
     }
     fetchStatistics(Deviceid){
         return $.uisptools.ajax("/uisptools/api/nms/devices/"+Deviceid+"/statistics?interval=hour");
@@ -164,6 +181,7 @@ class channelmap extends baseClientSide.widget
         let $deviceMapItemTemplate = $element.find(".templates").find(".deviceMapTemplate").find(".deviceMapItem");
         let $barTemplate = $element.find(".templates").find(".bar");
         let $frequencyChartTemplate = $element.find(".templates").find(".frequencyChartTemplate");
+
         const image = {
             url: "/images/devices/gpslite.png",
             // This marker is 20 pixels wide by 32 pixels high.
@@ -209,7 +227,7 @@ class channelmap extends baseClientSide.widget
                     console.log(device.location.heading);
                     if (event.target.checked && device.location.heading != null ) {
                         $button.data("link", addPolygon(device));
-
+6
                         Promise.all([self.fetchStatistics(device.identification.id)]).then(
                             (results) => {
                                 let deviceS = results[0];
@@ -309,13 +327,18 @@ class channelmap extends baseClientSide.widget
         for (i = 0; i < ($deviceHead.length); i++) {
             const $th = $deviceHead[i].children[0];
             const n =i;
+            console.log($th);
             if($th){
-                $th.addEventListener("click", function() {
+                $th.addEventListener("click", function(event) {
                     sortTable(n);
-                    console.log($th.classList);
+                    console.log($th.children[0]);
                     //let toggle = $th.classList.find(class => item.id === targetId)
-                    if($th.classList.value.includes("flip")){
+                    if($th.children[0].classList.value.includes("flip")){
                         console.log("works");
+                        $th.classList.remove("flip");
+                    }else{
+                    
+                    $th.classList.add("flip");
                     }
                     //$th.addClass("flip");
                     // This function will be called when the button is clicked
@@ -549,6 +572,11 @@ class channelmap extends baseClientSide.widget
                             console.log(activeAp);
                             self.bindDevices(activeAp);
                             //let $element = $(self.element);
+                        }
+                    );
+                    Promise.all([self.PostSurvey({"document":"test"})]).then(
+                        (results) => {
+                            console.log(results);
                         }
                     );
 

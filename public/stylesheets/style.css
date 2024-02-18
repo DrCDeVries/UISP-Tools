@@ -15,7 +15,7 @@ html,
     
 }
 
-.footer {
+.footer{
     text-align: center;
     background-color: white;
     min-height: 20px;
@@ -29,32 +29,32 @@ html,
   }
   .bar{
     display: inline-block;
+    align-items: center;
     width:.621%;
     height: 45px;
   }
   .bartooltiptext {
+    align-items: end;
+    width: fit-content;
+    display: flex;
     visibility: hidden;
-    width: 120px;
-    background-color: #555;
-    color: #ff0000;
-    text-align: center;
-    border-radius: 6px;
-    padding: 5px 0;
-    position: absolute;
+    transform:translate(-50%,-120%);
+    padding:10px 20px;
+    background-color: black;
+    color: #fff;
     z-index: 1;
-    bottom: 125%;
-    left: 50%;
-    margin-left: -60px;
-    opacity: 0;
-    transition: opacity 0.3s;
-    background-color: #0656eb;
+  }
+  .bar .bartooltiptext::after {
+    transform:translate(-65%,120%);
+    content: "";
+    border-width: 15px;
+    border-style: solid;
+    border-color: black transparent transparent transparent;
   }
   .flip {
-
+    
     animation: flip-icon 0.3s ease-in-out;
-    position: sticky;
-    position: top;
-    prefix: n;
+
 }
   
   @keyframes flip-icon {
@@ -66,8 +66,8 @@ html,
     }
 }
   
-  .bartooltip:hover + .bartooltiptext {
-    visibility: hidden;
+  .bartooltip:hover .bartooltiptext {
+    visibility: visible;
   }
 
 .uisptoolslogo {

@@ -551,6 +551,104 @@ var UispToolsApiHandler = function (options) {
 
     };
 
+    var getMongoDb = function (options) {
+        var deferred = Defer();
+        try {
+
+            const client = new MongoClient(objOptions.mongoDbServerUrl,objOptions.mongoClientOptions);
+            // Use connect method to connect to the Server
+            client.connect().then( 
+                function () {
+                    try {           
+                        const db = client.db(objOptions.mongoDbDatabaseName);
+                        const collection = db.collection('ut_SurveyData');                     
+                        if (collection) {
+                            collection.find({})
+                                .toArray().then(
+                                    function ( Items) {   
+                                        client.close();
+                                        deferred.resolve(Items);
+                                    },
+                                    function(ex){
+                                        debug("error", "getMenuItems", ex);
+                                        client.close();
+                                        deferred.reject(ex)
+                                    }
+                                );
+                        } else {
+                            deferred.resolve(null);
+                        }
+                    } catch (ex) {
+                        debug("error", "getMenuItems", ex);
+                        deferred.reject(ex)
+                        client.close();
+                    }
+                },
+                function(err){
+                    debug("error", "getMenuItems", ex);
+                    deferred.reject(ex)
+                }    
+            );
+                
+        
+            
+        } catch (ex) {
+            debug('error', 'getMenuItems', ex);
+            deferred.reject(ex);
+        }
+        return deferred.promise;
+
+    };
+    var postMongoDb = function (options,document) {
+        var deferred = Defer();
+        try {
+
+            const client = new MongoClient(objOptions.mongoDbServerUrl,objOptions.mongoClientOptions);
+            // Use connect method to connect to the Server
+            client.connect().then( 
+                function () {
+                    try {           
+                        const db = client.db(objOptions.mongoDbDatabaseName);
+                        const collection = db.collection('ut_SurveyData');                     
+                        if (collection) {
+                            collection
+                            .insertOne(singleDocument)
+                            .then(
+                                    function ( Items) {   
+                                        client.close();
+                                        deferred.resolve(Items);
+                                    },
+                                    function(ex){
+                                        debug("error", "getMenuItems", ex);
+                                        client.close();
+                                        deferred.reject(ex)
+                                    }
+                                );
+                        } else {
+                            deferred.resolve(null);
+                        }
+                    } catch (ex) {
+                        debug("error", "getMenuItems", ex);
+                        deferred.reject(ex)
+                        client.close();
+                    }
+                },
+                function(err){
+                    debug("error", "getMenuItems", ex);
+                    deferred.reject(ex)
+                }    
+            );
+                
+        
+            
+        } catch (ex) {
+            debug('error', 'getMenuItems', ex);
+            deferred.reject(ex);
+        }
+        return deferred.promise;
+
+    };
+
 
     var getPluginData = function(options){
         var deferred = Defer();
@@ -1055,5 +1153,6 @@ var UispToolsApiHandler = function (options) {
     self.deleteAccessToken = deleteAccessToken;
     self.cleanLoginData = cleanLoginData;
     self.getMenuItems = getMenuItems;
+    self.getMongoDb = getMongoDb;
 };
 module.exports = UispToolsApiHandler;
