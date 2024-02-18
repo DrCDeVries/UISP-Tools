@@ -58,10 +58,20 @@ var UispToolsApiRequestHandler = function (options) {
             routes.get('/' + self.options.urlPrefix + 'api/PageContent/LinkUrl/*', getPageByLinkUrl);
             routes.post('/' + self.options.urlPrefix + 'login/loginBoth', loginBoth);
             
+<<<<<<< Updated upstream
             routes.get('/' + self.options.urlPrefix + 'login/loginData', getLoginData);
             routes.get('/' + self.options.urlPrefix + 'errorHandlerTest', errorHandlerTest);
             routes.get('/' + self.options.urlPrefix + 'errorHandlerTestRawError', errorHandlerTestRawError);
             routes.get('/' + self.options.urlPrefix + 'api/settings/anonymousClientSideSettings', getAnonymousClientSideSettings);
+=======
+            routes.get('/uisptools/data/surveyData', getSurveyData);
+            routes.post('/uisptools/data/surveyData',PostSurveyData);
+
+            routes.get('/uisptools/login/loginData', getLoginData);
+            routes.get('/uisptools/errorHandlerTest', errorHandlerTest);
+            routes.get('/uisptools/errorHandlerTestRawError', errorHandlerTestRawError);
+            routes.get('/uisptools/api/settings/anonymousClientSideSettings', getAnonymousClientSideSettings);
+>>>>>>> Stashed changes
             //Any Routes above this line are not Checked for Auth and are Public
             routes.get('/' + self.options.urlPrefix + 'api/*', checkApiAccess);
             routes.get('/' + self.options.urlPrefix + 'api/UserInfo', getUserInfo);
@@ -497,6 +507,37 @@ var getLoginData = function (req, res) {
             handleHttpRequestError(req,res,error);
         }
     );
+};
+
+var getSurveyData = function (req, res) {
+    self.objOptions.uispToolsApiHandler.getMongoDb().then(
+        function (data) {
+            try {
+                res.json(data);
+            } catch (ex) {
+                handleHttpRequestError(req,res,ex);
+            }
+        },
+        function (error) {
+            handleHttpRequestError(req,res,error);
+        }
+    );
+};
+var PostSurveyData = function (req, res) {
+    console.log(req.body);
+    res.json();
+    // self.objOptions.uispToolsApiHandler.getMongoDb().then(
+    //     function (data) {
+    //         try {
+    //             res.json(data);
+    //         } catch (ex) {
+    //             handleHttpRequestError(req,res,ex);
+    //         }
+    //     },
+    //     function (error) {
+    //         handleHttpRequestError(req,res,error);
+    //     }
+    // );
 };
 
 
