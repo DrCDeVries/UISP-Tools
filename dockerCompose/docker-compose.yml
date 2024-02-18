@@ -1,0 +1,45 @@
+version: "3.7"
+services:
+  uisptools:
+    #image: "ghcr.io/andrewiski/uisp-tools/uisptools:latest"
+    image: "andrewiski/uisptools:latest"
+    ports:
+      - "${UISPTOOLS_HTTPSPORT:-49443}:49443"
+      - "${UISPTOOLS_HTTPPORT:-49080}:49080"
+    volumes:
+      - ../data/config:/usr/src/uisptools/config
+      - ../data/logs:/usr/src/uisptools/logs
+    container_name: uisptools${UISPTOOLS_ALIAS}
+    environment:
+    #Note that the port is always 27017 as we are running with in the same network as the mongodb so not using the port mapping 
+      MONGODBSERVERURL: "${MONGODBSERVERURL:-mongodb://${MONGODBUSERNAME:-uisptools}:${MONGODBPASSWORD:-U!spT00ls!}@uisptools_mongodb${UISPTOOLS_ALIAS}:27017/}" 
+      GOOGLEAPIKEY: "${GOOGLEAPIKEY:-}"
+    depends_on:
+      - uisptools_mongodb
+    networks:
+    - uisptoolsnetwork
+    restart: always
+  uisptools_mongodb:
+    image: mongo
+    container_name: uisptools_mongodb${UISPTOOLS_ALIAS}
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: "${MONGODBUSERNAME:-uisptools}"
+      MONGO_INITDB_ROOT_PASSWORD: "${MONGODBPASSWORD:-U!spT00ls!}"
+      MONGO_INITDB_DATABASE: "${MONGODBUSERNAME:-uisptools}"
+    volumes:
+      - ../data/mongodb/data/db:/data/db
+      - ../data/mongodb/data/configdb:/data/configdb
+      #- ../data/mongodb/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d:ro
+      - ../data/mongodb/docker-entrypoint-initdb.d/01_createDatabase.js:/docker-entrypoint-initdb.d/01_createDatabase.js:ro
+      - ../data/mongodb/docker-entrypoint-initdb.d/02_initWebServerPages.js:/docker-entrypoint-initdb.d/02_initWebServerPages.js:ro
+    #Remove this line for Production only here for development direct connect to mongo
+    #expose:
+    #  - "${UISPTOOLS_MONGOPORT:-49017}"
+    #ports:
+    #  - "${UISPTOOLS_MONGOPORT:-49017}:27017"  
+    restart: always
+    networks:
+    - uisptoolsnetwork
+networks:
+  uisptoolsnetwork:
+    name: uisptoolsnetwork${UISPTOOLS_ALIAS}

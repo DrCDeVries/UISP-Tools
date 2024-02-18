@@ -30,13 +30,17 @@
             },
             settings: {
                 system: {},
-                user: {}
+                user: {},
+                script: {
+                    urlPrefix: ''
+                }
             },
             dataCache: [],
             templateCache: {
-                "login": { url: '/uisptools/scripts/app/templates/login.htm', data: '', isLoaded: false },
-                "error": { url: '/uisptools/scripts/app/templates/error.htm', data: '', isLoaded: false },
-                "defaultModal" : {url: '/uisptools/scripts/app/templates/default.modal.htm', data: '', isLoaded: false}
+                "login": { url: 'scripts/app/templates/login.htm', data: '', isLoaded: false },
+                "error": { url: 'scripts/app/templates/error.htm', data: '', isLoaded: false },
+                "footer": { url: 'footer.htm', data: '', isLoaded: false },
+                "defaultModal" : {url: 'scripts/app/templates/default.modal.htm', data: '', isLoaded: false}
                 
             },
             menu: {
@@ -80,7 +84,7 @@
                             //remove any attempts to double dot move up folders
                             widgetFactoryJSPath = widgetFactoryJSPath.replace(/\.\./g, "");
                             widgetFactoryJSPath = widgetFactoryJSPath.replace(/\./g, "/");
-                            widgetFactoryJSPath = "/uisptools/plugins/" + widgetFactoryJSPath +  "/widgetFactory.js";
+                            widgetFactoryJSPath = '/' + $.uisptools.common.settings.script.urlPrefix + 'plugins/' + widgetFactoryJSPath +  '/widgetFactory.js';
                             //add a script tag to the dom so the script goes into memory
                             widgetFactoryInfo[key].namespace = widgetFactoryNamespace;
                             widgetFactoryInfo[key].created = new Date();
@@ -212,30 +216,37 @@
                 //added by Andy so we only Init Once   05/29/2015
                 if ($.uisptools.properties.isInited === false) {
                     $.when(
-                        $.uisptools.refreshTemplateCache(),
-                        //After Initialization we want to auto login the user if possible
-                        $.uisptools.autoLogin(),
+                        $.uisptools.getScriptSettings(),
+                    ).done(function () {
                         
-                        $.uisptools.getSystemSettings(),
-                        //is the GoogleLoginAPi Loaded if so lets init it
-                        //$.uisptools.initExternalProviders()
-
-                    ).done(function (x, data) {
-                        //$.logToConsole("$.uisptools.appInit() DONE");
-
                         $.when(
-                            $.uisptools.getMenuItems(),    
-                            $.uisptools.loadPageContent()
-                        ).done(function (x, data) {
-                            $.uisptools.properties.isInited = true;
+                            $.uisptools.refreshTemplateCache(),
+                            //After Initialization we want to auto login the user if possible
+                            $.uisptools.autoLogin(),
                             
-                            deferred.resolve();
-                        }).fail(function (result) {
-                            deferred.reject(result);
-                        })
-                            .fail(function (result) {
+                            $.uisptools.getSystemSettings(),
+                            
+                            //is the GoogleLoginAPi Loaded if so lets init it
+                            //$.uisptools.initExternalProviders()
+
+                        ).done(function (x, data) {
+                            //$.logToConsole("$.uisptools.appInit() DONE");
+
+                            $.when(
+                                $.uisptools.updateFooter(),
+                                $.uisptools.getMenuItems(),    
+                                $.uisptools.loadPageContent()
+                            ).done(function (x, data) {
+                                $.uisptools.properties.isInited = true;
+                                
+                                deferred.resolve();
+                            }).fail(function (result) {
                                 deferred.reject(result);
-                            });
+                            })
+                                .fail(function (result) {
+                                    deferred.reject(result);
+                                });
+                        });
                     });
                 } else {
                     deferred.resolve();
@@ -271,11 +282,29 @@
 
 
 
+        getScriptSettings: function () {
+            var deferred = $.Deferred();
+            $.uisptools.ajax({
+                method: 'GET',
+                url: 'scriptsettings.json'
+            }).then(
+                function (results) {
+                    $.uisptools.common.settings.script = results;
+                    deferred.resolve();
+                },
+                function (reason) {
+                    $.logToConsole("Error: uisptools.getScriptSettings failed " + reason);
+                    deferred.reject(reason);
+                }
+            );
+            return deferred.promise();
+        },
+
         getSystemSettings: function () {
             var deferred = $.Deferred();
             $.uisptools.ajax({
                 method: 'GET',
-                url: '/uisptools/api/settings/anonymousClientSideSettings'
+                url: '/' + $.uisptools.common.settings.script.urlPrefix + 'api/settings/anonymousClientSideSettings'
             }).then(
                 function (results) {
                     $.uisptools.common.settings.system = results;
@@ -328,6 +357,9 @@
                 
             )
         },
+
+
+       
 
         showPageContent: function (page) {
             document.title = page.pageTitle;
@@ -452,12 +484,15 @@
             var deferred = $.Deferred();
             var url = '';
             if (options.pageContentGuid) {
-                url = '/uisptools/api/PageContent/PageContentGuid/' + options.pageContentGuid;
+                url = '/' + $.uisptools.common.settings.script.urlPrefix + 'api/PageContent/PageContentGuid/' + options.pageContentGuid;
             }else if (options.linkUrl) {
-                url = '/uisptools/api/PageContent/LinkUrl/' + options.linkUrl;
+                if (options.linkUrl[0] === "/"){
+                    options.linkUrl = options.linkUrl.substring(1);
+                }
+                url = '/' + $.uisptools.common.settings.script.urlPrefix + 'api/PageContent/LinkUrl/' + options.linkUrl;
             }
             else {
-                url = '/uisptools/api/PageContent/PageContentGuid/00000000-0000-0000-0000-000000000001' ; //Home Page
+                url = '/' + $.uisptools.common.settings.script.urlPrefix + 'api/PageContent/PageContentGuid/00000000-0000-0000-0000-000000000001' ; //Home Page
             }
             $.uisptools.ajax({
                 method: 'GET',
@@ -475,7 +510,13 @@
         },
 
         
-
+        updateFooter: function () {
+            var deferred = $.Deferred();
+            $.uisptools.getTemplateCache("footer").then(function (footer) {
+                let $footer = $("footer").html(footer);
+            });
+            return deferred.promise();
+        },
         
 
         getTemplateContent: function (options) {
@@ -486,7 +527,7 @@
             }
             //remove any attempts to double dot move up folders
             templatePath = templatePath.replace(/../g, "")
-            var url = '/uisptools/scripts/app/templates/' + templatePath;
+            var url = '/' + $.uisptools.common.settings.script.urlPrefix + 'scripts/app/templates/' + templatePath;
             $.uisptools.ajax({
                 method: 'GET',
                 url:  url,
@@ -507,7 +548,7 @@
             var deferred = $.Deferred();
             $.uisptools.ajax({
                 method: 'GET',
-                url: '/uisptools/api/PageContent/MenuItems'
+                url: '/' + $.uisptools.common.settings.script.urlPrefix + 'api/PageContent/MenuItems'
             }).then(
                 function (menuItems) {
                     $.uisptools.common.menu.menuItems = menuItems;
@@ -559,9 +600,9 @@
             } else {
                 let url = "";
                 if(myTemplate && myTemplate.url){
-                    url = myTemplate.url;
+                    url = '/' + $.uisptools.common.settings.script.urlPrefix + myTemplate.url;
                 }else{
-                    url = "/uisptools/scripts/app/templates/" + templateName;
+                    url = '/' + $.uisptools.common.settings.script.urlPrefix + 'scripts/app/templates/' + templateName;
                     myTemplate = {url:url};
                     $.uisptools.common.templateCache[templateName] = myTemplate;
                 }
@@ -1134,7 +1175,7 @@
                     method: "GET",
                     //timeout: 60000,
                     dataType: "json",
-                    url: "/uisptools/login/logout",
+                    url: '/' + $.uisptools.common.settings.script.urlPrefix + 'login/logout',
                     success: function (result) {
                         //If no data is returned, spit up a message
                         if (!result || result == null) {
@@ -1613,7 +1654,7 @@
             var myDeferred = $.Deferred();
             var defaults = {
                 method: 'GET',
-                url: "/uisptools/api/UserInfo"
+                url: '/' + $.uisptools.common.settings.script.urlPrefix + 'api/UserInfo'
             }
             var objOptions = $.extend({}, defaults, options);
             if ($.uisptools.isClientSideDebugging()) {
@@ -1672,7 +1713,7 @@
                     contentType: "application/x-www-form-urlencoded; charset=UTF-8",
                     //data: JSON.stringify(postdata),
                     data: myOptions,
-                    url: '/uisptools/login/loginBoth',
+                    url: '/' + $.uisptools.common.settings.script.urlPrefix + 'login/loginBoth',
                     success: function (result) {
                         //If no data is returned, show message
                         if (!result) {

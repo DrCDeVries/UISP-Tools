@@ -14,13 +14,14 @@ var UispToolsApiRequestHandler = function (options) {
     var self = this;
     var defaultOptions = {
         logUtilHelper:null,
-        uispToolsApiHandler: null
+        uispToolsApiHandler: null,
+        urlPrefix: ""
     };
-    var objOptions = extend({}, defaultOptions, options);
-    self.objOptions = objOptions;
+    
+    self.options = extend({}, defaultOptions, options);
 
     var debug = null;
-    if (self.objOptions.logUtilHelper){
+    if (self.options.logUtilHelper){
         debug = function(loglevel){
             let args = []
             for (let i = 0; i < arguments.length; i++) {
@@ -36,7 +37,7 @@ var UispToolsApiRequestHandler = function (options) {
             if (args.length > 1) {
                 args.shift(); //remove the loglevel from the array
             }
-            self.objOptions.logUtilHelper.log(appName, "app", loglevel, args);
+            self.options.logUtilHelper.log(appName, "app", loglevel, args);
         }
     }else{
         debug = require('debug')(appName);
@@ -52,40 +53,40 @@ var UispToolsApiRequestHandler = function (options) {
         
         try {
             
-            routes.get('/uisptools/api/PageContent/MenuItems', getMenuItems);
-            routes.get('/uisptools/api/PageContent/PageContentGuid/:guid', getPageByPageContentGuid);
-            routes.get('/uisptools/api/PageContent/LinkUrl/*', getPageByLinkUrl);
-            routes.post('/uisptools/login/loginBoth', loginBoth);
+            routes.get('/' + self.options.urlPrefix + 'api/PageContent/MenuItems', getMenuItems);
+            routes.get('/' + self.options.urlPrefix + 'api/PageContent/PageContentGuid/:guid', getPageByPageContentGuid);
+            routes.get('/' + self.options.urlPrefix + 'api/PageContent/LinkUrl/*', getPageByLinkUrl);
+            routes.post('/' + self.options.urlPrefix + 'login/loginBoth', loginBoth);
             
-            routes.get('/uisptools/login/loginData', getLoginData);
-            routes.get('/uisptools/errorHandlerTest', errorHandlerTest);
-            routes.get('/uisptools/errorHandlerTestRawError', errorHandlerTestRawError);
-            routes.get('/uisptools/api/settings/anonymousClientSideSettings', getAnonymousClientSideSettings);
+            routes.get('/' + self.options.urlPrefix + 'login/loginData', getLoginData);
+            routes.get('/' + self.options.urlPrefix + 'errorHandlerTest', errorHandlerTest);
+            routes.get('/' + self.options.urlPrefix + 'errorHandlerTestRawError', errorHandlerTestRawError);
+            routes.get('/' + self.options.urlPrefix + 'api/settings/anonymousClientSideSettings', getAnonymousClientSideSettings);
             //Any Routes above this line are not Checked for Auth and are Public
-            routes.get('/uisptools/api/*', checkApiAccess);
-            routes.get('/uisptools/api/UserInfo', getUserInfo);
-            routes.get('/uisptools/login/logout', checkApiAccess);
-            routes.get('/uisptools/login/logout', logout);
+            routes.get('/' + self.options.urlPrefix + 'api/*', checkApiAccess);
+            routes.get('/' + self.options.urlPrefix + 'api/UserInfo', getUserInfo);
+            routes.get('/' + self.options.urlPrefix + 'login/logout', checkApiAccess);
+            routes.get('/' + self.options.urlPrefix + 'login/logout', logout);
             
             //Any /uisptools/api Routes above this are basic User Authed if below then only SuperAdmin can call them
-            routes.get('/uisptools/api/*', checkSuperAdminApiAccess);
-            routes.post('/uisptools/api/*', checkSuperAdminApiAccess);
-            routes.delete('/uisptools/api/*', checkSuperAdminApiAccess);
+            routes.get('/' + self.options.urlPrefix + 'api/*', checkSuperAdminApiAccess);
+            routes.post('/' + self.options.urlPrefix + 'api/*', checkSuperAdminApiAccess);
+            routes.delete('/' + self.options.urlPrefix + 'api/*', checkSuperAdminApiAccess);
 
             //These should be accessed server side via the baseServerSideJs calls so not to reveil contents
-            //routes.get('/uisptools/api/pluginUserData/:pluginName', handlePluginUserDataRequest);
-            // routes.post('/uisptools/api/pluginData/:pluginName', savePluginData);
-            // routes.post('/uisptools/api/pluginUserData/:pluginName', savePluginUserData);
-            // routes.delete('/uisptools/api/pluginData/:pluginName', deletePluginData);
-            // routes.delete('/uisptools/api/pluginUserData/:pluginName', deletePluginUserData);
+            //routes.get('/' + self.options.urlPrefix + '/api/pluginUserData/:pluginName', handlePluginUserDataRequest);
+            // routes.post('/' + self.options.urlPrefix + '/api/pluginData/:pluginName', savePluginData);
+            // routes.post('/' + self.options.urlPrefix + '/api/pluginUserData/:pluginName', savePluginUserData);
+            // routes.delete('/' + self.options.urlPrefix + '/api/pluginData/:pluginName', deletePluginData);
+            // routes.delete('/' + self.options.urlPrefix + '/api/pluginUserData/:pluginName', deletePluginUserData);
 
             //Only Admin plugins can call these directly plugins should only expose what should exposed as you can pull credit card data etc.
-            routes.get('/uisptools/api/crm/*', getCRM);
-            routes.get('/uisptools/api/nms/*', getNMS);
-            routes.post('/uisptools/api/crm/*', getCRM);
-            routes.post('/uisptools/api/nms/*', getNMS);
-            routes.delete('/uisptools/api/crm/*', getCRM);
-            routes.delete('/uisptools/api/nms/*', getNMS);
+            routes.get('/' + self.options.urlPrefix + 'api/crm/*', getCRM);
+            routes.get('/' + self.options.urlPrefix + 'api/nms/*', getNMS);
+            routes.post('/' + self.options.urlPrefix + 'api/crm/*', getCRM);
+            routes.post('/' + self.options.urlPrefix + 'api/nms/*', getNMS);
+            routes.delete('/' + self.options.urlPrefix + 'api/crm/*', getCRM);
+            routes.delete('/' + self.options.urlPrefix + 'api/nms/*', getNMS);
             
         } catch (ex) {
            debug("error", ex.msg, ex.stack);
@@ -99,7 +100,7 @@ var UispToolsApiRequestHandler = function (options) {
         try {
             
             var clientSideSettings = {
-                googleApiKey: self.objOptions.googleApiKey
+                googleApiKey: self.options.googleApiKey
             }
             
             
@@ -131,7 +132,7 @@ var UispToolsApiRequestHandler = function (options) {
             let access_token = req.headers.authorization;
             if(access_token && access_token.startsWith("Bearer ")){
                 access_token = access_token.substring(7);
-                self.objOptions.uispToolsApiHandler.getAccessToken({access_token:access_token}).then(
+                self.options.uispToolsApiHandler.getAccessToken({access_token:access_token}).then(
                     function(accessToken){
                         if(accessToken != null){
                             //double check not Expired etc but not sure why Mongo would not delete it
@@ -146,21 +147,21 @@ var UispToolsApiRequestHandler = function (options) {
                     },
                     function(err){
                         debug("error", "checkApiAccess Error", { "msg": err.message, "stack": err });
-                        if(res.closed === false){
+                        if(res.writable === true){
                             res.status(500).json({ "msg": "An Error Occured!", "error": err});
                         }
                     }
                 )
             }else{
                 debug("debug", "checkApiAccess access_token is invalid", req.headers.authorization);
-                if(res.closed === false){
+                if(res.writable === true){ //if(res.closed === false){
                     res.status(401).json({ "msg": "Invalid AccessToken!", "error": "Invalid AccessToken"}); 
                 }
             }
             
         } catch (ex) {
             debug("error", "checkApiAccess", { "msg": ex.message, "stack": ex.stack });
-            if(res.closed === false){
+            if(res.writable === true){
                 res.status(500).json({ "msg": "An Error Occured!", "error": ex });
             }
         }
@@ -198,7 +199,7 @@ var UispToolsApiRequestHandler = function (options) {
         //We have to strip the _ querystring value sent with Ajax calls else NMS will complain
 
         var url = req.path;
-        url = url.replace("/uisptools/api/crm/", "");
+        url = url.replace('/' + self.options.urlPrefix + '/api/crm/', '');
         if(req.query){
             let queryString = "";
             for (const [key, value] of Object.entries(req.query)) {
@@ -233,7 +234,7 @@ var UispToolsApiRequestHandler = function (options) {
                 method : req.method
                 //ucrmAppKey:accessToken.loginData.nmsLoginData.x-auth-token
             }
-            self.objOptions.uispToolsApiHandler.handleUcrmRequest(ucrmOptions).then(
+            self.options.uispToolsApiHandler.handleUcrmRequest(ucrmOptions).then(
                 function(data){
                     res.json(data);
                 },
@@ -257,7 +258,7 @@ var UispToolsApiRequestHandler = function (options) {
         //We have to strip the _ querystring value sent with Ajax calls else NMS will complain
 
         var url = req.path;
-        url = url.replace("/uisptools/api/nms/", "");
+        url = url.replace('/' + self.options.urlPrefix + '/api/nms/', "");
         if(req.query){
             let queryString = "";
             for (const [key, value] of Object.entries(req.query)) {
@@ -293,7 +294,7 @@ var UispToolsApiRequestHandler = function (options) {
                 nmsAuthToken:accessToken.loginData.nmsLoginData["x-auth-token"],
                 method : req.method
             }
-            self.objOptions.uispToolsApiHandler.handleUnmsRequest(unmsOptions).then(
+            self.options.uispToolsApiHandler.handleUnmsRequest(unmsOptions).then(
                 function(data){
                     res.json(data);
                 },
@@ -319,7 +320,7 @@ var UispToolsApiRequestHandler = function (options) {
             
             //We strip and message the loginData to fit the application here
 
-            var userInfo = objOptions.uispToolsApiHandler.cleanLoginData(res.locals.accessToken.loginData)
+            var userInfo = self.options.uispToolsApiHandler.cleanLoginData(res.locals.accessToken.loginData)
             
             res.json(userInfo);
             
@@ -337,7 +338,7 @@ var loginBoth =  function (req, res) {
     var loginData = {};
     if(req.body && req.body.grant_type === "refresh_token"){
         try {
-            objOptions.uispToolsApiHandler.getRefreshToken({refresh_token: req.body.refresh_token}).then(
+            self.options.uispToolsApiHandler.getRefreshToken({refresh_token: req.body.refresh_token}).then(
                 function(refreshToken){   
                     if(refreshToken === null){
                         debug("debug", "loginBoth refresh_token not found", req.body.refresh_token);
@@ -345,7 +346,7 @@ var loginBoth =  function (req, res) {
                     }else{
                         var loginData = refreshToken.loginData 
                         delete refreshToken.loginData                 
-                        objOptions.uispToolsApiHandler.createAccessToken({refreshToken: refreshToken,loginData:loginData}).then(
+                        self.options.uispToolsApiHandler.createAccessToken({refreshToken: refreshToken,loginData:loginData}).then(
                             function(accessToken){
                                 delete loginData.crmLoginData
                                 delete accessToken._id
@@ -355,7 +356,7 @@ var loginBoth =  function (req, res) {
                                 loginData.refreshToken = refreshToken
                                 res.setHeader("Cache-Control", "no-store");
                                 res.setHeader("Pragma", "no-cache");
-                                loginData = objOptions.uispToolsApiHandler.cleanLoginData(loginData);
+                                loginData = self.options.uispToolsApiHandler.cleanLoginData(loginData);
                                 res.json(loginData);
                             },
                             function(err){
@@ -373,12 +374,12 @@ var loginBoth =  function (req, res) {
             handleHttpRequestError(req, res, ex);
         }
     }else{
-        self.objOptions.uispToolsApiHandler.publicLoginCrm(req.body).then(
+        self.options.uispToolsApiHandler.publicLoginCrm(req.body).then(
             function (loginData) {
                 try {
-                    objOptions.uispToolsApiHandler.createRefreshToken({loginData:loginData}).then(
+                    self.options.uispToolsApiHandler.createRefreshToken({loginData:loginData}).then(
                         function(refreshToken){                       
-                            objOptions.uispToolsApiHandler.createAccessToken({refreshToken: refreshToken,loginData:loginData}).then(
+                            self.options.uispToolsApiHandler.createAccessToken({refreshToken: refreshToken,loginData:loginData}).then(
                                 function(accessToken){
                                     delete loginData.crmLoginData
                                     delete accessToken._id
@@ -387,7 +388,7 @@ var loginBoth =  function (req, res) {
                                     loginData.refreshToken = refreshToken
                                     res.setHeader("Cache-Control", "no-store");
                                     res.setHeader("Pragma", "no-cache");
-                                    loginData = objOptions.uispToolsApiHandler.cleanLoginData(loginData);
+                                    loginData = self.options.uispToolsApiHandler.cleanLoginData(loginData);
                                     res.json(loginData);
                                 },
                                 function(err){
@@ -406,12 +407,12 @@ var loginBoth =  function (req, res) {
             },
             function (error) {
                 //Try to login to NMS see if its an Admin loging in 
-                self.objOptions.uispToolsApiHandler.publicLoginNms(req.body).then(
+                self.options.uispToolsApiHandler.publicLoginNms(req.body).then(
                     function (loginData) {
                         try {
-                            objOptions.uispToolsApiHandler.createRefreshToken({loginData:loginData}).then(
+                            self.options.uispToolsApiHandler.createRefreshToken({loginData:loginData}).then(
                                 function(refreshToken){
-                                    objOptions.uispToolsApiHandler.createAccessToken({refreshToken: refreshToken, loginData:loginData}).then(
+                                    self.options.uispToolsApiHandler.createAccessToken({refreshToken: refreshToken, loginData:loginData}).then(
                                         function(accessToken){
                                             delete loginData.nmsLoginData
                                             delete loginData.nmsAuthToken
@@ -421,7 +422,7 @@ var loginBoth =  function (req, res) {
                                             loginData.accessToken = accessToken;
                                             res.setHeader("Cache-Control", "no-store");
                                             res.setHeader("Pragma", "no-cache");
-                                            loginData = objOptions.uispToolsApiHandler.cleanLoginData(loginData);
+                                            loginData = self.options.uispToolsApiHandler.cleanLoginData(loginData);
                                             res.json(loginData);
                                         },
                                         function(err){
@@ -463,10 +464,10 @@ var logout =  function (req, res) {
             nmsAuthToken:nmsAuthToken,
             method : "POST"
         }
-        logoutPromises.push(objOptions.uispToolsApiHandler.handleUnmsRequest(unmsOptions))
+        logoutPromises.push(self.options.uispToolsApiHandler.handleUnmsRequest(unmsOptions))
     }
-    logoutPromises.push(objOptions.uispToolsApiHandler.deleteRefreshToken({refresh_token: refresh_token}));
-    logoutPromises.push(objOptions.uispToolsApiHandler.deleteAccessToken({refresh_token: refresh_token}))
+    logoutPromises.push(self.options.uispToolsApiHandler.deleteRefreshToken({refresh_token: refresh_token}));
+    logoutPromises.push(self.options.uispToolsApiHandler.deleteAccessToken({refresh_token: refresh_token}))
     Promise.all(logoutPromises)
     .then(
         function(){
@@ -484,7 +485,7 @@ var logout =  function (req, res) {
 //Login Page Public Data
 var getLoginData = function (req, res) {
     var loginData = {};
-    self.objOptions.uispToolsApiHandler.publicLoginData().then(
+    self.options.uispToolsApiHandler.publicLoginData().then(
         function (data) {
             try {
                 res.json(data);
@@ -507,7 +508,7 @@ var getLoginData = function (req, res) {
 
 // var getUserInfo = function (req, res) {
 //     var loginData = {};
-//     self.objOptions.uispToolsApiHandler.loginUserInfo().then(
+//     self.options.uispToolsApiHandler.loginUserInfo().then(
 //         function (data) {
 //             try {
 //                 res.json(data);
@@ -580,7 +581,7 @@ var handleHttpRequestError = function (req, res, err, debugData) {
 var getMenuItems = function (req, res, next) {
     try {
         let options = {}
-        objOptions.uispToolsApiHandler.getMenuItems(options).then(
+        self.options.uispToolsApiHandler.getMenuItems(options).then(
             function (docs) {
                 res.json(docs);
             },
@@ -603,7 +604,7 @@ var getMenuItems = function (req, res, next) {
             let m_options = extend({}, options, defaultOptions); 
             m_options.find = extend({}, options.find, defaultOptions.find);
             m_options.projections = extend({}, options.projections, defaultOptions.projections);
-            objOptions.uispToolsApiHandler.getPageContent(m_options).then(
+            self.options.uispToolsApiHandler.getPageContent(m_options).then(
                 function (docs) {
                     res.json(docs);
                 },
@@ -618,7 +619,7 @@ var getMenuItems = function (req, res, next) {
 
 
     var getPageByLinkUrl = function (req, res) {
-        let linkPath = req.path.replace("/uisptools/api/PageContent/LinkUrl/", "");
+        let linkPath = req.path.replace('/' + self.options.urlPrefix + 'api/PageContent/LinkUrl/', "/");
         let options = { find: { linkUrl: linkPath }};
         getPage(req, res, options);
     }

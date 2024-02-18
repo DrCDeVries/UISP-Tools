@@ -21,8 +21,6 @@ const AdmZip = require('adm-zip');
 const util = require('util');
 const ConfigHandler = require("@andrewiski/confighandler");
 const LogUtilHelper = require("@andrewiski/logutilhelper");
-const LetsEncrypt =  require('@andrewiski/letsencrypt');
-const OpenSSL = require("@andrewiski/openssl");
 const ioServer = require('socket.io');
 const UispToolsApiHandler = require("./uispToolsApiHandler.js");
 const UispToolsApiRequestHandler = require("./uispToolsApiRequestHandler.js");
@@ -44,15 +42,21 @@ if (process.env.localDebug === 'true') {
     localDebug = true;
 }
 
+
+
+  
+
 var defaultConfig = {
     "configDirectory": configFileOptions.configDirectory,
-    "mongoDbServerUrl": "mongodb://uisptools:U!spT00ls!@uisptools_mongodb:27017/?connectTimeoutMS=300000&authSource=admin",
-    "mongoDbDatabaseName": "uisptools",
+    "urlPrefix": "",
+    "mongoDbServerUrl": process.env.MONGODBSERVERURL || ((process.env.MONGODBUSERNAME || "mongodb") + ":" + (process.env.MONGODBPASSWORD || "U!spT00ls!") + "@uisptools_mongodb" + (process.env.UISPTOOLS_ALIAS || "") + ":27017/?connectTimeoutMS=300000&authSource=admin") ,
+    "googleApiKey": process.env.GOOGLEAPIKEY || "",
+    "mongoDbDatabaseName": process.env.MONGODBDATABASE || "uisptools",
     "logDirectory": "logs",
     "adminRoute": "/admin",
     "logLevel": "info",
     "useHttp": true,
-    "useHttps": true,
+    "useHttps": false,
     "httpport": 49080,
     "httpsport": 49443,
     "adminUsername": "admin",
@@ -69,12 +73,11 @@ var defaultConfig = {
         "server": {
             "app":"info"
         },
-        "ucrmApiRequestHandler":{"app":"info"},
-        "deApiRequestHandler":{"app":"info"}
+        "uispToolsApiHandler":{"app":"info"},
+        "uispToolsApiRequestHandler":{"app":"info"}
     },
     "plugins":[
-        "uisptools.testing",
-        "uisptools.dfsdetect",
+        "uisptools",        
         "wilcowireless"
       ]
 };
@@ -99,9 +102,9 @@ var configHandler = new ConfigHandler(configFileOptions, defaultConfig);
 
 var objOptions = configHandler.config;
 var configFolder = objOptions.configDirectory;
-var certificatesFolder = path.join(objOptions.configDirectory, 'certificates');
-var caFolder = path.join(certificatesFolder, 'ca');
 
+var urlPrefix = objOptions.urlPrefix;
+console.log("urlPrefix " + urlPrefix);
 var httpsServerKey = null
 var httpsServerCert = null; 
 if(objOptions.httpsServerKey.startsWith("/") === true){
@@ -116,33 +119,8 @@ if(objOptions.httpsServerCert.startsWith("/") === true){
     httpsServerCert = path.join(__dirname, configFolder, objOptions.httpsServerCert);
 }
 
-var letsEncryptCertificateFolder = path.join(certificatesFolder, 'letsEncrypt');
-if(fs.existsSync(letsEncryptCertificateFolder) === false){
-    fs.mkdirSync(letsEncryptCertificateFolder,{recursive:true});
-    fs.mkdirSync(path.join(letsEncryptCertificateFolder, 'accounts') ,{recursive:true});
-    fs.mkdirSync(path.join(letsEncryptCertificateFolder, 'backups') ,{recursive:true});
-}
 
 
-if (objOptions.opensslPath.startsWith('./') === true) {
-    objOptions.opensslPath = path.join(__dirname, objOptions.opensslPath.substring(1));
-}
-
-var openssl = new OpenSSL({ "opensslPath": objOptions.opensslPath,
-    certificatesFolder:  certificatesFolder,
-    caFolder: caFolder,
-    keySize: 4096, //2048
-    caDomainName: "localhost",
-    caPassword: null //"mycapassword"
- });
-
- var letsEncrypt = new LetsEncrypt( {
-        certificatesFolder: letsEncryptCertificateFolder,
-        accountFolder: path.join(letsEncryptCertificateFolder, 'accounts'),
-        backupFolder: path.join(letsEncryptCertificateFolder, 'backups'),
-        eventHandler: null,
-        canRenewInDays: 30
-    });
 
 var appLogHandler = function (logData) {
     //add to the top of the log
@@ -171,6 +149,7 @@ let logUtilHelper = new LogUtilHelper({
     logRequestsName: "access"
 
 })
+logUtilHelper.log(appLogName, "app", "info", "urlPrfix:" + urlPrefix )
 
 // var appLogger = new Logger({
 //     logLevels: objOptions.logLevels,
@@ -193,7 +172,8 @@ var uispToolsApiHandler = new UispToolsApiHandler({
 var uispToolsApiRequestHandler = new UispToolsApiRequestHandler({
     logUtilHelper:logUtilHelper,
     uispToolsApiHandler:uispToolsApiHandler,
-    googleApiKey: objOptions.googleApiKey
+    googleApiKey: objOptions.googleApiKey,
+    urlPrefix: urlPrefix
 });
 
 
@@ -228,38 +208,7 @@ var privateData = {
 
 
 
-// var acmeNotify = function (ev, msg) {
-//     let data = null;
-//     let message = '';
-//     if (isObject(msg)) {
-//         data = msg;
-//         message = ev;
-//     } else {
-//         message = msg;
-//     }
-//     if (ev === 'error' || ev === 'warning') {
-//         writeToLog(ev, 'Acme', msg || '');
-//         if (io) {
-//             io.emit('createLetsEncrypt', { status: 'progress', success: false, error: ev, msg: message || '', data: data });
-//         }
-//     } else {
-//         writeToLog('info', 'Acme', ev || '', msg || '');
-//         if (io) {
-//             io.emit('createLetsEncrypt', { status: 'progress', success: false, error: null, msg: message || '', data: data });
-//         }
-//     }
 
-// };
-// var acmehttp01 = ACMEHttp01.create();
-// var acmeCertificateManagerOptions = extend({}, objOptions.acmeCertificateManagerOptions);
-// acmeCertificateManagerOptions.http01 = acmehttp01;
-// acmeCertificateManagerOptions.notify = acmeNotify;
-// acmeCertificateManagerOptions.retryInterval = 15000;
-// acmeCertificateManagerOptions.deauthWait = 30000;
-// acmeCertificateManagerOptions.retryPoll = 10;
-// acmeCertificateManagerOptions.retryPending = 10;
-// acmeCertificateManagerOptions.debug = true;
-// var acmeCert = ACMECert.create(acmeCertificateManagerOptions);
 
 
 var getConnectionInfo = function (req) {
@@ -284,56 +233,18 @@ var getSocketInfo = function (socket) {
     return { ip: ip };
 };
 
-//config public files are used before public folder files to allow overwrite.
 
-if(fs.existsSync(path.join(__dirname, objOptions.configDirectory, 'public'))){
-    app.use(express.static(path.join(__dirname, objOptions.configDirectory, 'public')));
-}
-
-app.use(express.static(path.join(__dirname, 'public')));
 
 
 // disable the x-power-by express message in the header
 app.disable('x-powered-by');
 
 
-// only excludes root folders and files will need to change logic to exclude subfolder but can exclude using sparce-checkout file so git never gets them.
-var excludedFileNames = [];
-var excludedFolders = [];
-
-var addAllFolderFilesToZip = function (folderpath, filename, zip) {
-    if (filename !== null) {
-        folderpath = path.join(folderpath, filename);
-    }
-    var files = fs.readdirSync(folderpath);
-
-    //listing all files using forEach
-    files.forEach(function (file) {
-        // Do whatever you want to do with the file
-        // add local file
-        try {
-            if (fs.lstatSync(path.join(folderpath, file)).isFile()) {
-                if (excludedFileNames.includes(file) === false) {
-                    zip.addLocalFile(path.join(folderpath, file));
-                }
-                //logUtilHelper.log(appLogName, "app", "debug", "added file to zip " + path.join(folderpath, file) );
-            } else {
-                if (fs.lstatSync(path.join(folderpath, file)).isDirectory()) {
-                    if (excludedFolders.includes(file) === false) {
-                        zip.addLocalFolder(path.join(folderpath, file), file);
-                    }
-                }
-            }
-        } catch (ex) {
-            logUtilHelper.log(appLogName, "app", "error", "addAllFolderFilesToZip", "Error Adding File/Folder to Zip", path.join(folderpath, file));
-        }
-    });
-};
+//create the log folder if it doesn't exist
 
 
-
-if (fs.existsSync(path.join(__dirname, 'logs')) === false) {
-    fs.mkdirSync(path.join(__dirname, 'logs'));
+if (fs.existsSync(path.join(__dirname, objOptions.logDirectory)) === false) {
+    fs.mkdirSync(path.join(__dirname, objOptions.logDirectory));
 }
 
 
@@ -432,7 +343,7 @@ app.use(function (req, res, next) {
     return;
 })
 
-app.use('/uisptools/javascript/polyfill.io/polyfill.min.js',function(req, res){
+app.use('/' + urlPrefix + 'javascript/polyfill.io/polyfill.min.js',function(req, res){
     polyfillLibrary.getPolyfillString({
         uaString: req.get('user-agent'),
         minify: true,
@@ -445,7 +356,7 @@ app.use('/uisptools/javascript/polyfill.io/polyfill.min.js',function(req, res){
     });
 })
 
-app.use('/uisptools/javascript/polyfill.io/polyfill.js',function(req, res){
+app.use('/' + urlPrefix + 'javascript/polyfill.io/polyfill.js',function(req, res){
     polyfillLibrary.getPolyfillString({
         uaString: req.get('user-agent'),
         minify: false,
@@ -460,22 +371,28 @@ app.use('/uisptools/javascript/polyfill.io/polyfill.js',function(req, res){
 
 
 
-app.use('/uisptools/javascript/socket.io', express.static(path.join(__dirname, 'node_modules', 'socket.io', 'client-dist')));
-app.use('/uisptools/javascript/fontawesome', express.static(path.join(__dirname, 'node_modules', '@fortawesome', 'fontawesome-free')));
-app.use('/uisptools/javascript/bootstrap', express.static(path.join(__dirname, 'node_modules', 'bootstrap', 'dist')));
-app.use('/uisptools/javascript/jquery', express.static(path.join(__dirname, 'node_modules', 'jquery', 'dist')));
-app.use('/uisptools/javascript/moment', express.static(path.join(__dirname, 'node_modules', 'moment', 'min')));
-app.use('/uisptools/javascript/bootstrap-notify', express.static(path.join(__dirname, 'node_modules', 'bootstrap-notify')));
-app.use('/uisptools/javascript/animate-css', express.static(path.join(__dirname, 'node_modules', 'animate.css')));
-app.use('/uisptools/javascript/jsoneditor', express.static(path.join(__dirname, 'node_modules', 'jsoneditor', 'dist')));
-app.use('/uisptools/javascript/js-cookie', express.static(path.join(__dirname, 'node_modules', 'js-cookie', 'dist')));
-app.use('/uisptools/javascript/googlemaps', express.static(path.join(__dirname, 'node_modules', '@googlemaps', 'js-api-loader', 'dist')));
-app.use('/uisptools/javascript/mdb-ui-kit/js', express.static(path.join(__dirname, 'node_modules', 'mdb-ui-kit', 'js')));
-app.use('/uisptools/javascript/mdb-ui-kit/css', express.static(path.join(__dirname, 'node_modules', 'mdb-ui-kit', 'css')));
+
+
+app.use('/' + urlPrefix + 'javascript/socket.io', express.static(path.join(__dirname, 'node_modules', 'socket.io', 'client-dist')));
+app.use('/' + urlPrefix + 'javascript/fontawesome', express.static(path.join(__dirname, 'node_modules', '@fortawesome', 'fontawesome-free')));
+app.use('/' + urlPrefix + 'javascript/bootstrap', express.static(path.join(__dirname, 'node_modules', 'bootstrap', 'dist')));
+app.use('/' + urlPrefix + 'javascript/jquery', express.static(path.join(__dirname, 'node_modules', 'jquery', 'dist')));
+app.use('/' + urlPrefix + 'javascript/moment', express.static(path.join(__dirname, 'node_modules', 'moment', 'min')));
+app.use('/' + urlPrefix + 'javascript/bootstrap-notify', express.static(path.join(__dirname, 'node_modules', 'bootstrap-notify')));
+app.use('/' + urlPrefix + 'javascript/animate-css', express.static(path.join(__dirname, 'node_modules', 'animate.css')));
+app.use('/' + urlPrefix + 'javascript/jsoneditor', express.static(path.join(__dirname, 'node_modules', 'jsoneditor', 'dist')));
+app.use('/' + urlPrefix + 'javascript/js-cookie', express.static(path.join(__dirname, 'node_modules', 'js-cookie', 'dist')));
+app.use('/' + urlPrefix + 'javascript/googlemaps', express.static(path.join(__dirname, 'node_modules', '@googlemaps', 'js-api-loader', 'dist')));
+app.use('/' + urlPrefix + 'javascript/mdb-ui-kit/js', express.static(path.join(__dirname, 'node_modules', 'mdb-ui-kit', 'js')));
+app.use('/' + urlPrefix + 'javascript/mdb-ui-kit/css', express.static(path.join(__dirname, 'node_modules', 'mdb-ui-kit', 'css')));
+app.use('/' + urlPrefix + 'javascript/tinymce', express.static(path.join(__dirname, 'node_modules', 'tinymce')));
 
 if(fs.existsSync(path.join(__dirname,configFolder, '/public/images', 'favicon.ico' ))){
     app.use(favicon(path.join(__dirname,configFolder, '/public/images', 'favicon.ico' )));
+}else if(fs.existsSync(path.join(__dirname, '/public/images', 'favicon.ico' ))){
+    app.use(favicon(path.join(__dirname, '/public/images', 'favicon.ico' )));
 }
+
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
@@ -489,8 +406,8 @@ var routes = express.Router();
 var handlePluginPublicFileRequest = function (req, res) {
     let filePath = req.path;
 
-    if (filePath.startsWith("/uisptools/")){
-        filePath = filePath.substring(10);
+    if (urlPrefix !== "" && filePath.startsWith('/' + urlPrefix)){
+        filePath = filePath.substring(urlPrefix.length + 1);
     }
 
 
@@ -534,14 +451,23 @@ var handlePluginPublicFileRequest = function (req, res) {
 var handlePublicFileRequest = function (req, res) {
     var filePath = req.path;
 
-    if (filePath === "/") {
+    if (filePath === "/" && urlPrefix !== "") {
         //filePath = "/index.htm";
-        res.redirect("/uisptools");
+        logUtilHelper.log(appLogName, "app", "info", "redirecting to /" + urlPrefix );
+        res.redirect("/" + urlPrefix);
     }
-    if (filePath === "/uisptools/") {
+    if (filePath === '/' + urlPrefix) {
         filePath = "/index.htm";
-    }else if (filePath.startsWith("/uisptools/")){
-        filePath = filePath.substring(10);
+    }else if (urlPrefix !== "" && filePath.startsWith('/' + urlPrefix)){
+        filePath = filePath.substring(urlPrefix.length + 1);
+    }
+
+    if(filePath.endsWith("scriptsettings.json")){
+        let scriptSettings = {
+            urlPrefix: urlPrefix,
+        }
+        res.json(scriptSettings);
+        return;
     }
 
     
@@ -580,12 +506,22 @@ var handlePublicFileRequest = function (req, res) {
 
     //}
 
-    if (fs.existsSync(path.join(__dirname, 'public',filePath)) === true) {
-        res.sendFile(filePath, { root: path.join(__dirname, 'public') });  
+    //config public files are used before public folder files to allow overwrite.
+
+
+
+    if (fs.existsSync(path.join(__dirname, objOptions.configDirectory, 'public',filePath)) === true) {
+        res.sendFile(filePath, { root: path.join(__dirname, objOptions.configDirectory, 'public') });     
+    }else if (fs.existsSync(path.join(__dirname, 'public',filePath)) === true) {       
+        res.sendFile(filePath, { root: path.join(__dirname, 'public') });     
     } else {
-        filePath = "/index.htm";
-        res.sendFile(filePath, { root: path.join(__dirname, 'public') });
-        //res.sendStatus(404);
+        let fileExt = path.extname(filePath);
+        if(fileExt === "" || fileExt === ".htm" || fileExt === ".html"){
+            filePath = "/index.htm";
+            res.sendFile(filePath, { root: path.join(__dirname, 'public') });
+        }else{
+            res.sendStatus(404);
+        }
     }
     
 } ;  
@@ -597,135 +533,7 @@ uispToolsApiRequestHandler.bindRoutes(routes);
 
 
 
-//routes.get('/', function (req, res) {
-//    var connInfo = getConnectionInfo(req);
-//    res.end();
-//    logUtilHelper.log(appLogName, "browser", 'info', "path:" + req.path + ", ip:" + connInfo.ip + ", port:" + connInfo.port + ", ua:" + connInfo.ua);
-//});
 
-
-routes.post('/certificateUpload', function (req, res) {
-    //Route that the Https Certs are uploaded to
-    try {
-        if (!req.files) {
-            res.send({
-                success: false,
-                status: 'failed',
-                message: 'No file uploaded'
-            });
-        } else {
-
-            let privateKeyFile = req.files.PrivateKeyFile;
-            //privateKeyFile.mv(path.join(__dirname, options.httpsServerKey));
-
-            let publicCertFile = req.files.PublicCertFile;
-            //publicCertFile.mv(path.join(__dirname, options.httpsServerCert));
-
-            letsEncrypt.loadX509Cert({ certFile: publicCertFile.data, keyFile: privateKeyFile.data }).then(
-                function (certs) {
-                    try {
-                        if (certs) {
-
-                            var hasValidPrivateKey = false;
-                            certs.forEach(function (cert) {
-                                if (cert.privateKeyValid) {
-                                    hasValidPrivateKey = true;
-                                }
-                            });
-
-                            if (hasValidPrivateKey === true) {
-                                if (fs.existsSync(path.join(__dirname, objOptions.httpsServerKey))) {
-                                    if (fs.existsSync(path.join(__dirname, path.dirname(objOptions.httpsServerKey), 'backups')) === false) {
-                                        fs.mkdirSync(path.join(__dirname, path.dirname(objOptions.httpsServerKey), 'backups'));
-                                    }
-                                    fs.copyFileSync(path.join(__dirname, objOptions.httpsServerKey), path.join(__dirname, path.dirname(objOptions.httpsServerKey), 'backups', moment().format("YYYYMMDDhhmmss") + '_' + path.basename(objOptions.httpsServerKey)));
-                                }
-
-                                if (fs.existsSync(path.join(__dirname, objOptions.httpsServerCert))) {
-                                    if (fs.existsSync(path.join(__dirname, path.dirname(objOptions.httpsServerCert), 'backups')) === false) {
-                                        fs.mkdirSync(path.join(__dirname, path.dirname(objOptions.httpsServerCert), 'backups'));
-                                    }
-                                    fs.copyFileSync(path.join(__dirname, objOptions.httpsServerCert), path.join(__dirname, path.dirname(objOptions.httpsServerCert), 'backups', moment().format("YYYYMMDDhhmmss") + '_' + path.basename(objOptions.httpsServerCert)));
-                                }
-                                fs.writeFileSync(path.join(__dirname, objOptions.httpsServerKey), privateKeyFile.data);
-                                fs.writeFileSync(path.join(__dirname, objOptions.httpsServerCert), publicCertFile.data);
-                                //send response
-                                res.send({
-                                    success: true,
-                                    status: "complete",
-                                    message: 'Certificate Files uploaded',
-                                    data: {
-                                        privateKeyFile:
-                                        {
-                                            name: privateKeyFile.name,
-                                            mimetype: privateKeyFile.mimetype,
-                                            size: privateKeyFile.size
-                                        },
-                                        publicCertFile:
-                                        {
-                                            name: publicCertFile.name,
-                                            mimetype: publicCertFile.mimetype,
-                                            size: publicCertFile.size
-                                        }
-                                    }
-                                });
-                                //update the https server so it uses the new certs
-                                updateHttpsServer();
-                            } else {
-                                res.send({
-                                    success: false,
-                                    status: "Error",
-                                    message: 'Private Key is not valid for Certificate',
-                                    data: {
-                                        privateKeyFile:
-                                        {
-                                            name: privateKeyFile.name,
-                                            mimetype: privateKeyFile.mimetype,
-                                            size: privateKeyFile.size
-                                        },
-                                        publicCertFile:
-                                        {
-                                            name: publicCertFile.name,
-                                            mimetype: publicCertFile.mimetype,
-                                            size: publicCertFile.size
-                                        }
-                                    }
-                                });
-                            }
-                        }
-                    } catch (err) {
-                        res.status(500).send({
-                            success: false,
-                            status: "Error",
-                            message: err,
-                            data: null
-                        });
-                    }
-                },
-                function (ev, message) {
-                    res.status(500).send({
-                        success: false,
-                        status: ev,
-                        message: message,
-                        data: null
-                    });
-                }
-
-
-            );
-
-
-
-        }
-    } catch (err) {
-        res.status(500).send({
-            success: false,
-            status: "Error",
-            message: err,
-            data: null
-        });
-    }
-});
 
 
 routes.get(objOptions.adminRoute, function (req, res) {
@@ -792,7 +600,7 @@ for (let index = 0; index < objOptions.plugins.length; index++) {
     
 }
 
-routes.get('/uisptools/plugins/*', function (req, res) {
+routes.get('/' + urlPrefix + 'plugins/*', function (req, res) {
     handlePluginPublicFileRequest(req, res);
 });
 
@@ -800,43 +608,12 @@ routes.get('/*', function (req, res) {
     handlePublicFileRequest(req, res);
 });
 
-routes.get('/uisptools/*', function (req, res) {
+routes.get('/' + urlPrefix + '*', function (req, res) {
     handlePublicFileRequest(req, res);
 });
 
 
-var loadCertificates = function () {
-    try {
-        letsEncrypt.loadX509CertSync({ certFile: httpsServerCert, keyFile: objOptions.httpsServerKey }).then(
-            function (Certs) {
-                try {
-                    //clean up the binary data we don't need 
-                    Certs.forEach(function (Cert) {
-                        delete Cert.raw;
-                        delete Cert.signature;
-                        delete Cert.publicKey;
-                        delete Cert.publicRaw;
-                        delete Cert.tbsCertificate;
-                    });
-                    commonData.serverCertificates = Certs;
 
-                    logUtilHelper.log(appLogName, "app", 'info', 'Loaded Server Certs');
-                    if (io) {
-                        io.emit('serverCertificatesUpdate', Certs);
-                    }
-                } catch (ex2) {
-                    logUtilHelper.log(appLogName, "app", 'error', 'Error Loading Server Public Cert ', ex2);
-                }
-            },
-            function (ev, msg) {
-                logUtilHelper.log(appLogName, "app",'error', 'Error Loading Server Public Cert ', ev, msg);
-            }
-        );
-    } catch (ex) {
-        logUtilHelper.log(appLogName, "app", 'error', 'Error Loading Certificates Exception', ex);
-    }
-
-};
 
 app.use('/', routes);
 
@@ -996,23 +773,9 @@ io.on('connection', function (socket) {
         });
 
 
-        socket.on('createLetsEncrypt', function (data) {
-            try {
-                logUtilHelper.log(appLogName, "browser", "info", socket.id, "createLetsEncrypt");
-                //renewServerCertificate();
-            } catch (ex) {
-                logUtilHelper.log('error', 'Error socket on', ex);
-            }
-        });
+       
 
-        socket.on('loadCertificates', function (data) {
-            try {
-                logUtilHelper.log(appLogName, "browser", "info",  socket.id, "loadCertificates");
-                loadCertificates();
-            } catch (ex) {
-                logUtilHelper.log(appLogName, "browser", 'error', 'Error socket on', ex);
-            }
-        });
+        
 
 
 
@@ -1029,11 +792,7 @@ io.on('connection', function (socket) {
 startupReady.resolve();
 
 var startupServer = function () {
-    try {
-        loadCertificates();
-    } catch (ex) {
-        logUtilHelper.log(appLogName, "app", 'error', 'Error Loading https certificate', ex);
-    }
+    
     try {
         startWebServers();
     } catch (ex) {
